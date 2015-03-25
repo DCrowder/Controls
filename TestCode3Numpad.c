@@ -1,0 +1,420 @@
+#include <PIC16f887.h>
+
+// PIC16F887 Configuration Bit Settings
+
+// 'C' source line config statements
+
+#include <htc.h>
+
+#include <pic.h> /* This header file contains symbolic register addresses
+that may be used to perform input/output operations
+and to access other resources on the PIC 16F887 microcontroller*/
+
+
+
+__CONFIG(FOSC_INTRC_NOCLKOUT & WDTE_OFF & PWRTE_ON & MCLRE_OFF & CP_OFF & CPD_OFF & BOREN_OFF & IESO_OFF & FCMEN_OFF & LVP_OFF);
+__CONFIG(BOR4V_BOR21V & WRT_OFF);
+
+// LCD Ports
+#define LCD_E   RC5
+#define LCD_RW  RC6
+#define LCD_RS  RC7
+#define LCD_DAT PORTD
+
+// LCD Directions
+#define LCD_E_Dir   TRISC5
+#define LCD_RW_Dir  TRISC6
+#define LCD_RS_Dir  TRISC7
+#define LCD_DAT_Dir TRISD
+
+//Enable bit delay time
+#define EDelay 304 //304 cycles = 38 usec
+
+// Numpad Ports
+#define Col1 RE0
+#define Col2 RE1
+#define Col3 RE2
+
+#define Row1 PORTBbits.RB0
+#define Row2 PORTBbits.RB1
+#define Row3 PORTBbits.RB2
+#define Row4 PORTBbits.RB3
+
+// Numpad Directions
+#define Col1_dir TRISE0
+#define Col2_dir TRISE1
+#define Col3_dir TRISE2
+
+#define Row1_dir TRISB0
+#define Row2_dir TRISB1
+#define Row3_dir TRISB2
+#define Row4_dir TRISB3
+
+void delay(unsigned int time)
+{
+    unsigned int i;
+    
+   for(i = 0; i < time; i++); //Loop
+
+}
+
+void ToggleEpinOfLCD(void)
+{
+	LCD_E = 1;                // Give a pulse on E pin
+	delay(EDelay);            // so that LCD can latch the
+	LCD_E = 0;                // data from data bus
+	delay(EDelay);
+}
+
+
+void WriteCommandToLCD(unsigned char Command)
+{
+	LCD_RS = 0;               // It is a command
+	LCD_DAT = Command;        // Write Command value on data bus
+
+	ToggleEpinOfLCD();
+}
+
+void WriteDataToLCD(char LCDChar)
+{
+	LCD_RS = 1;               // It is data
+	LCD_DAT = LCDChar;        // Write Data value on data bus
+
+	ToggleEpinOfLCD();
+}
+
+void InitLCD(void)
+{
+	// Firstly make all pins output
+	LCD_E   	     = 0;      // E = 0
+        LCD_RW               = 0;
+	LCD_RS    	     = 0;      // D = 0
+	LCD_DAT              = 0;      // CLK = 0
+        
+	LCD_E_Dir            = 0;      // Make Output
+        LCD_RW_Dir           = 0;      // Make Output
+        LCD_RS_Dir           = 0;      // Make Output
+	LCD_DAT_Dir          = 0;      // Make Output
+
+  ///////////////// Reset process from datasheet //////////////
+   delay(120000);                   // Determined by 15 ms and 8 Mhz clk--p11 of SPLC780 datasheet
+   WriteCommandToLCD(0x30);
+
+   delay(32800);                    // Determined by 4.1 ms--32800
+   WriteCommandToLCD(0x30);
+
+   delay(800);                      // 100 usec--800
+   WriteCommandToLCD(0x30);
+
+   delay(150000);                   // 15 msec--120000
+  /////////////////////////////////////////////////////
+
+   WriteCommandToLCD(0x38);                //function set
+   delay(35000);
+   WriteCommandToLCD(0b00001100);          //display on/off control
+   delay(35000);                           //display on,cursor off,blink off
+   WriteCommandToLCD(0x01);                //clear display
+   delay(35000);
+   WriteCommandToLCD(0x06);                //entry mode, set increment
+   delay(35000);
+
+}
+
+
+
+
+void WriteStringToLCD(const char *s)
+{
+    while(*s)
+    {
+	WriteDataToLCD(*s++);   // print first character on LCD
+    }
+}
+
+
+
+void ClearLCDScreen(void)
+{
+	WriteCommandToLCD(0x01);    // Clear the screen
+	delay(35000);              // Delay for cursor to return at zero position
+}
+
+unsigned char ReadNumpad(void)
+{
+    unsigned char numpadEntry = 0x80;
+
+    // The way Rows and Columns are stored:
+    //  (1)(CCC)(RRRR) -- 1, C columns, R rows
+
+    // Row values
+    unsigned char Row1_bin = 0b10000001;
+    unsigned char Row2_bin = 0b10000010;
+    unsigned char Row3_bin = 0b10000100;
+    unsigned char Row4_bin = 0b10001000;
+
+    // Column values
+    unsigned char Col1_bin = 0b10010000;
+    unsigned char Col2_bin = 0b10100000;
+    unsigned char Col3_bin = 0b11000000;
+
+    // 2a: Col1
+    Col1 = 1;
+    Col2 = 0;
+    Col3 = 0;
+    delay(6000);
+
+    WriteStringToLCD("Column 1: *");
+    WriteDataToLCD(Row1);
+    WriteDataToLCD(Row2);
+    WriteDataToLCD(Row3);
+    WriteDataToLCD(Row4);
+    WriteStringToLCD("*");
+
+    if((Row1||Row2||Row3||Row4) == 1)
+    {
+        numpadEntry |= Col1_bin;
+
+        if(Row1 == 1)
+        {
+            numpadEntry |= Row1_bin;
+        }
+        if(Row2 == 1)
+        {
+            numpadEntry |= Row2_bin;
+        }
+        if(Row3 == 1)
+        {
+            numpadEntry |= Row3_bin;
+        }
+        if(Row4 == 1)
+        {
+            numpadEntry |= Row4_bin;
+        }
+
+    }
+
+    // 2b: Col2
+    Col1 = 0;
+    Col2 = 1;
+    Col3 = 0;
+    delay(6000);
+    WriteStringToLCD("Column 2: *");
+    WriteDataToLCD(Row1);
+    WriteDataToLCD(Row2);
+    WriteDataToLCD(Row3);
+    WriteDataToLCD(Row4);
+    WriteStringToLCD("*");
+
+    if((Row1||Row2||Row3||Row4) == 1)
+    {
+        numpadEntry |= Col2_bin;
+
+        if(Row1 == 1)
+        {
+            numpadEntry |= Row1_bin;
+        }
+        if(Row2 == 1)
+        {
+            numpadEntry |= Row2_bin;
+        }
+        if(Row3 == 1)
+        {
+            numpadEntry |= Row3_bin;
+        }
+        if(Row4 == 1)
+        {
+            numpadEntry |= Row4_bin;
+        }
+
+    }
+
+    // 2c: Col3
+    Col1 = 0;
+    Col2 = 0;
+    Col3 = 1;
+    delay(6000);
+
+    WriteStringToLCD("Column 3: *");
+    WriteDataToLCD(Row1);
+    WriteDataToLCD(Row2);
+    WriteDataToLCD(Row3);
+    WriteDataToLCD(Row4);
+    WriteStringToLCD("*");
+
+    if((Row1||Row2||Row3||Row4) == 1)
+    {
+        numpadEntry |= Col3_bin;
+
+        if(Row1 == 1)
+        {
+            numpadEntry |= Row1_bin;
+        }
+        if(Row2 == 1)
+        {
+            numpadEntry |= Row2_bin;
+        }
+        if(Row3 == 1)
+        {
+            numpadEntry |= Row3_bin;
+        }
+        if(Row4 == 1)
+        {
+            numpadEntry |= Row4_bin;
+        }
+    }
+    
+    WriteDataToLCD(numpadEntry);
+    return numpadEntry;
+}
+
+int bitcount (unsigned int n)
+{
+   int count = 0;
+   while (n) {
+      count += n & 0x1u;
+      n >>= 1;
+   }
+   return count;
+}
+
+unsigned char numpadNum (unsigned char numpadEntry)
+{
+    //row 1
+    unsigned char num1_bin =    0b10010001;
+    unsigned char num2_bin =    0b10100001;
+    unsigned char num3_bin =    0b11000001;
+
+    //row 2
+    unsigned char num4_bin =    0b10010010;
+    unsigned char num5_bin =    0b10100010;
+    unsigned char num6_bin =    0b11000010;
+
+    //row 3
+    unsigned char num7_bin =    0b10010100;
+    unsigned char num8_bin =    0b10100100;
+    unsigned char num9_bin =    0b11000100;
+
+    //row 4
+    unsigned char numastk_bin = 0b10011000;
+    unsigned char num0_bin =    0b10101000;
+    unsigned char numpnd_bin =  0b11001000;
+
+    unsigned char number = '!';
+
+    //row 1
+    if(numpadEntry == num1_bin)
+    {
+        number = '1';
+    }
+    if(numpadEntry == num2_bin)
+    {
+        number = '2';
+    }
+    if(numpadEntry == num3_bin)
+    {
+        number = '3';
+    }
+
+    //row 2
+    if(numpadEntry == num4_bin)
+    {
+        number = '4';
+    }
+    if(numpadEntry == num5_bin)
+    {
+        number = '5';
+    }
+    if(numpadEntry == num6_bin)
+    {
+        number = '6';
+    }
+
+    //row 3
+    if(numpadEntry == num7_bin)
+    {
+        number = '7';
+    }
+    if(numpadEntry == num8_bin)
+    {
+        number = '8';
+    }
+    if(numpadEntry == num9_bin)
+    {
+        number = '9';
+    }
+
+    //row 4
+    if(numpadEntry == numastk_bin)
+    {
+        number = '*';
+    }
+    if(numpadEntry == num0_bin)
+    {
+        number = '0';
+    }
+    if(numpadEntry == numpnd_bin)
+    {
+        number = '#';
+    }
+            WriteDataToLCD(number);
+            return number;
+}
+
+
+void main(void)
+{
+    // Stage 1: Set I/O on the ports
+    Col1_dir = 0;
+    Col2_dir = 0;
+    Col3_dir = 0;
+
+
+    Row1_dir = 1;
+    Row2_dir = 1;
+    Row3_dir = 1;
+    Row4_dir = 1;
+
+    ANSEL = 0;
+
+
+unsigned char numpadEntry = 0x00;
+unsigned char numpadDat = '!';
+
+
+//      LCD prompt
+
+        ClearLCDScreen();
+        InitLCD();
+        ClearLCDScreen();
+        InitLCD();
+
+        // Written strings must be ordered by lines in 16 character segments
+        // Line 5 is only 8 bits long and is not seen by the user
+        WriteStringToLCD("Please enter the");       // Line 1
+        WriteStringToLCD(" and press # for");       // Line 3
+        WriteStringToLCD("        ");               // Line 5 (unseen)
+        WriteStringToLCD("patient's weight");       // Line 2
+        WriteStringToLCD("enter * to erase");       // Line 4
+        delay(50000);
+        ClearLCDScreen();
+
+        WriteStringToLCD("Patient Weight:");
+
+        while(numpadDat == '!')
+        {
+    // Stage 2: Cycle through the Ports.
+
+        numpadEntry = ReadNumpad();
+        WriteDataToLCD(numpadEntry);
+
+    // Stage 3: Check if entry is valid and assign ASCII data value
+ 
+        numpadDat = numpadNum(numpadEntry);
+
+        }
+        WriteDataToLCD(numpadDat);
+
+
+    while(1);
+
+}
