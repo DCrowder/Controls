@@ -71,7 +71,7 @@ void InitLCD(void)
         LCD_RW               = 0;
 	LCD_RS    	     = 0;      // D = 0
 	LCD_DAT              = 0;      // CLK = 0
-        
+
 	LCD_E_Dir            = 0;      // Make Output
         LCD_RW_Dir           = 0;      // Make Output
         LCD_RS_Dir           = 0;      // Make Output
@@ -101,9 +101,12 @@ void InitLCD(void)
 
 void WriteStringToLCD(const char *s)
 {
-
-    WriteDataToLCD(*s);   // print first character on LCD
+	while(*s)
+        {
+            WriteDataToLCD(*s++);   // print first character on LCD
+        }
 }
+
 
 
 
@@ -114,12 +117,13 @@ void ClearLCDScreen(void)
 }
 
 void main(void)
-{        
+{
         InitLCD();
         ClearLCDScreen();
         InitLCD();
         ClearLCDScreen();
-
-        WriteStringToLCD("Hello world!");
+        WriteStringToLCD("It works!");
+        while(1);
 
 }
+
