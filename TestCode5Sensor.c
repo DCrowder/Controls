@@ -1,5 +1,6 @@
 #include <PIC16f887.h>
 #include <ctype.h>
+#include <stdio.h>
 
 // PIC16F887 Configuration Bit Settings
 
@@ -51,7 +52,8 @@ __CONFIG(BOR4V_BOR21V & WRT_OFF);
 
 #define PORT_SEN_DIR TRISA0
 #define ANALOG_SEN ANS0
-#define SENSOR ADRESL
+#define SENSORH ADRESH
+#define SENSORL ADRESL
 
 
 #define EDelay 1000 //304 cycles = 38 usec
@@ -131,7 +133,7 @@ void InitADC(void)
 {
     PORT_SEN_DIR = 1;       // Sets the sensor port as an input
     ANALOG_SEN = 1;         // Sets the sensor pin as analog
-    ADCON1 = 0xFF;
+    ADCON1 = 0xFF;          // left justified, Vref pins active
     ADCON0 = 0x01;
     delay(EDelay);             // Delay the required length of acquisition (Fosc/2)
     ADCON0 = 0x03;          // Sets the GO/!DONE bit so that ADC begins
@@ -164,28 +166,27 @@ char hexDigit(int n)
     }
 }
 
-char * BinToText(int n)
+char * IntToText(int n)
 {
-  static int bin[4];
-  bin[3] = n%10;                      // ones value
-  bin[2] = (n%100 - bin[0])/10;        // tens value = tens and ones value minus the ones value
-  bin[1] = (n - bin[1] - bin[0])/100;    // whole number minus the tens and ones values
-  bin[0] = '\0';       // null terminator
+  static int bin[5];
+  bin[4] = n%10;                      // ones value
+  bin[3] = (n%100 - n%10)/10;         // tens value = tens and ones value minus the ones value
+  bin[2] = (n%1000 - n%100)/100;      // whole number minus the tens and ones values
+  bin[1] = (n - n%1000)/1000;
+  bin[0] = '\0';                      // null terminator
   // convert all three values into ASCII digits
   
-  static char ascii[4];
-  ascii[0] = (char)(bin[0] + '0');   // ASCII form of binary value
-  ascii[1] = (char)(bin[1] + '0');
-  ascii[2] = (char)(bin[2] + '0');
-  ascii[3] = bin[0]; // null terminator
+  static char ascii[5];
+  ascii[0] = (char)(bin[1] + '0');    // ASCII form of binary value
+  ascii[1] = (char)(bin[2] + '0');
+  ascii[2] = (char)(bin[3] + '0');
+  ascii[3] = (char)(bin[4] + '0');
+  ascii[4] = bin[0]; // null terminator
      
 
      // return needed value
      return ascii;
 }
-
-
-
 
 void ColumnsOutput()
 {
@@ -218,18 +219,10 @@ void RowsOutput()
 
 void main(void)
 {
-
-    
-    //const char * UserSensor[] = BinToText(SENSOR);
-
-    
-    //  Would like to use strcat() but it's giving me an error.  Why?
-    //  strcat(UserSensor,BinToText(SENSOR));
-
-
+    //  Initialize the ADC
     InitADC();
 
-
+    //  Initialize the LCD
     InitLCD();
     ClearLCDScreen();
     InitLCD();
@@ -237,20 +230,28 @@ void main(void)
     
     while(1)
     {
+        //  Combines the ADC value into a single 2-byte variable
+        //  ADRESH/SENSORH is shifted 8 bits to the right (making it 2^(8,9))
+        //  ADRESH/SENSORH is OR-ed with ADRESL/SENSORL to get the 10 bit value
+        int short SENSOR = (SENSORH<<8) | SENSORL;
 
-        char * UserSensor = BinToText(SENSOR);
+        //  IntToText converts an integer to ASCII
+        int * UserSensor = IntToText(SENSOR);
+        //int * UserSensor = IntToText(SENSOR);
         WriteStringToLCD(UserSensor);
         WriteStringToLCD(" ");
+
         ADCON0 = 0x01;
-        delay(EDelay);             // Delay the required length of acquisition (Fosc/2)
+        delay(EDelay);          // Delay the required length of acquisition (Fosc/2)
         ADCON0 = 0x03;          // Sets the GO/!DONE bit so that ADC begins
 
         while(ADCON0 == 0x03);  // Poll for GO/!DONE bit to be cleared
+        //printf(SENSOR);
+        delay(100000);
+        ClearLCDScreen();
+        
        
     }
      
         // Written strings must be ordered by lines in 16 character segments
-
-
 }
-
