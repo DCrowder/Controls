@@ -188,15 +188,8 @@ void main(void)
         int RowVal = 0;
         char number[] = "0";
 
-        //Columns are outputs, rows are inputs
-        ColumnsOutput();
-        RowsInput();
 
-        //Turn on Columns
-        COL1 = 1;
-        COL2 = 1;
-        COL3 = 1;
-        
+
         InitLCD();
         ClearLCDScreen();
         InitLCD();
@@ -205,6 +198,22 @@ void main(void)
 
         while(1)
         {
+
+            //Columns are outputs, rows are inputs
+            ColumnsOutput();
+            RowsInput();
+
+            //Turn on Columns
+            COL1 = 1;
+            COL2 = 1;
+            COL3 = 1;
+            
+
+            ClearLCDScreen();
+            delay(100000);
+            WriteStringToLCD("Rows: ");
+
+
             RowVal = ROW1;
             number[0] = hexDigit(RowVal);
             WriteStringToLCD(number);
@@ -220,6 +229,35 @@ void main(void)
             RowVal = ROW4;
             number[0] = hexDigit(RowVal);
             WriteStringToLCD(number);
+            delay(100000);
+
+            //Columns are inputs, rows are outputs
+            ColumnsInput();
+            RowsOutput();
+
+            //Turn on rows
+            ROW1 = 1;
+            ROW2 = 1;
+            ROW3 = 1;
+            ROW4 = 1;
+
+            ClearLCDScreen();
+            delay(100000);
+            WriteStringToLCD("Cols`: ");
+
+
+            RowVal = COL1;
+            number[0] = hexDigit(RowVal);
+            WriteStringToLCD(number);
+
+            RowVal = COL2;
+            number[0] = hexDigit(RowVal);
+            WriteStringToLCD(number);
+
+            RowVal = COL3;
+            number[0] = hexDigit(RowVal);
+            WriteStringToLCD(number);
+            delay(100000);
         }
 
         while(1);
@@ -227,4 +265,3 @@ void main(void)
 
 
 }
-
