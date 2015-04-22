@@ -9,6 +9,7 @@
 #include <htc.h>
 #include <pic.h>
 #include <stdio.h>
+#include <math.h>
 
 //      Configuration Bits
 __CONFIG(FOSC_INTRC_NOCLKOUT & WDTE_OFF & PWRTE_ON & MCLRE_OFF & CP_OFF & CPD_OFF & BOREN_OFF & IESO_OFF & FCMEN_OFF & LVP_OFF);
@@ -120,8 +121,8 @@ void WriteStringToLCD(const char *s)
 void ClearLCDScreen(void)
 {
     //  Clears the LCD screen
-	WriteCommandToLCD(0x01);    // Clear the screen
-	delay(EDelay);              // Delay for cursor to return at zero position
+    WriteCommandToLCD(0x01);    // Clear the screen
+    delay(EDelay);              // Delay for cursor to return at zero position
 }
 
 
@@ -147,23 +148,23 @@ void ClearLCDScreen(void)
 
 char hexDigit(int n)
 {
-        return n + '0';
+      return n + '0';
 }
 
-char * IntToText(unsigned char n)
+char * IntToText(int n)
 {
-  static int bin[4];
-  bin[3] = n%10;                      // ones value
-  bin[2] = (n%100 - n%10)/10;         // tens value = tens and ones value minus the ones value
-  bin[1] = (n - n%100)/100;      // whole number minus the tens and ones values
-  bin[0] = '\0';                      // null terminator
-  // convert all three values into ASCII digits
+      static int bin[4];
+      bin[3] = n%10;                      // ones value
+      bin[2] = (n%100 - n%10)/10;         // tens value = tens and ones value minus the ones value
+      bin[1] = (n - n%100)/100;      // whole number minus the tens and ones values
+      bin[0] = '\0';                      // null terminator
+      // convert all three values into ASCII digits
 
-  static char ascii[4];
-  ascii[0] = (char)(bin[1] + '0');    // ASCII form of binary value
-  ascii[1] = (char)(bin[2] + '0');
-  ascii[2] = (char)(bin[3] + '0');
-  ascii[3] = bin[0]; // null terminator
+      static char ascii[4];
+      ascii[0] = (char)(bin[1] + '0');    // ASCII form of binary value
+      ascii[1] = (char)(bin[2] + '0');
+      ascii[2] = (char)(bin[3] + '0');
+      ascii[3] = bin[0]; // null terminator
 
 
      // return needed value
@@ -180,10 +181,10 @@ void ColumnsOutput()
 
 void RowsInput()
 {
-        DIRROW1 = 1;
-        DIRROW2 = 1;
-        DIRROW3 = 1;
-        DIRROW4 = 1;
+    DIRROW1 = 1;
+    DIRROW2 = 1;
+    DIRROW3 = 1;
+    DIRROW4 = 1;
 }
 
 void ColumnsInput()
@@ -219,10 +220,8 @@ void main(void)
         '$','\0','\0'};
         
        char number[4] = "000";
-       int numberInt = 0;
+       double numberInt = 0;
        char digit[2] = "$";
-
-       unsigned char NumFlag = 00000000;
 
        int R1Flag = 0;
        int R2Flag = 0;
@@ -233,23 +232,19 @@ void main(void)
        int C2Flag = 0;
        int C3Flag = 0;
 
-
-
-
-
-
         InitLCD();
         ClearLCDScreen();
         InitLCD();
         ClearLCDScreen();
-
           
-        WriteStringToLCD("Number: ");
+        WriteStringToLCD("Weight: ");
+        WriteCommandToLCD(0x0F);    //  Turn Cursor on
 
         int count = 0;
 
-        while(count < 3)
+        while(digit[0] != '#')
         {
+            digit[0] = '$';
 
             //Columns are outputs, rows are inputs
             ColumnsOutput();
@@ -284,72 +279,78 @@ void main(void)
             int ColFlag = 0;
 
            
-        // Sweep Rows
-        if (R1Flag)
-        {
-               RowFlag = 0;
-        }
-        if (R2Flag)
-        {
-               RowFlag = 1;
-        }
-        if (R3Flag)
-        {
-               RowFlag = 2;
-        }
-        if (R4Flag)
-        {
-               RowFlag = 3;
-        }
-            
-        // Sweep Columns
-        if (C1Flag)
-        {
-               ColFlag = 0;
-        }
-        if (C2Flag)
-        {
-               ColFlag = 1;
-        }
-        if (C3Flag)
-        {
-               ColFlag = 2;
-        }
+            // Sweep Rows
+            if (R1Flag)
+            {
+                   RowFlag = 0;
+            }
+            if (R2Flag)
+            {
+                   RowFlag = 1;
+            }
+            if (R3Flag)
+            {
+                   RowFlag = 2;
+            }
+            if (R4Flag)
+            {
+                   RowFlag = 3;
+            }
+
+            // Sweep Columns
+            if (C1Flag)
+            {
+                   ColFlag = 0;
+            }
+            if (C2Flag)
+            {
+                   ColFlag = 1;
+            }
+            if (C3Flag)
+            {
+                   ColFlag = 2;
+            }
 
 
             digit[0] = keys[RowFlag][ColFlag];
             delay(1000000);
 
-            if (digit[0] != '$')
-            {
-                if (digit[0] == '#')
+                if (digit[0] != '$')    // button has been pressed
                 {
-                    count = 3;      // number entering is done.
+                    if (digit[0] == '*' && count > 0) // only works if count is greater than 0
+                    {
+                        WriteCommandToLCD(0x10);    // C and L bits: move cursor left
+                        WriteStringToLCD(" ");      // Erase former digit
+                        WriteCommandToLCD(0x10);    // C and L bits: move cursor left
+                        count--;                    // Go back a step in array
+                    }
+                    else if (digit[0] != '#' && count < 3)   // only if operator doesn't want to continue
+                    {
+                        number[count] = digit[0];   //place the number into the code
+                        WriteStringToLCD(digit);
+                        count++;
+                    }
+                    delay(1000);       // Delay after action has been done
                 }
-                else if (digit[0] == '*')
-                {
-                    count--;        // Go back a step.
-                }
-                else
-                {
-                    number[count] = digit[0];   //place the number into the code
-                    WriteStringToLCD(digit);
-                    count++;
-                    delay(10000000);
-                }
-            }
                 
         }
 
         // Adds each digit to a new array from ASCII form.
         //
+        WriteStringToLCD(" ");
+        WriteStringToLCD(number);
+        WriteStringToLCD(" ");
 
         for(int i = 0; i < 3; i++)
         {
-            numberInt += 10*(i+1)*(number[i] - '0');
 
+            numberInt += (pow(10,2-i))*(number[i] - '0');
+            
         }
 
+        
+
+        WriteStringToLCD(" ");
         WriteStringToLCD(IntToText(numberInt));
             
 
@@ -358,3 +359,5 @@ void main(void)
 
 
 }
+
+
