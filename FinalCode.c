@@ -227,6 +227,8 @@ char assignNumpad()
     int C2Flag = 0;
     int C3Flag = 0;
 
+    
+
     char digit = '$';
 
     //Columns are outputs, rows are inputs
@@ -331,9 +333,9 @@ void PromptLCD(int stage)
     if (stage == 2)
     {
         WriteStringToLCD(" Check ratchets:");       // 1st line
-        WriteStringToLCD("Other side: down ");       // 3rd line
+        WriteStringToLCD("Other side: up  ");       // 3rd line
         WriteStringToLCD("        ");               // 5th line
-        WriteStringToLCD("Motor side: up  ");       // 2nd line
+        WriteStringToLCD("Motor side: down");       // 2nd line
         WriteStringToLCD(" # to continue. ");       // 4th line
     }
 
@@ -420,8 +422,6 @@ void main(void)
        while(digit[0] != '#' || count < 3)
        {
             digit[0] = assignNumpad();
-            
-
             delay(1000000);
 
                 if (digit[0] != '$')    // button has been pressed
@@ -433,7 +433,7 @@ void main(void)
                         WriteCommandToLCD(0x10);    // C and L bits: move cursor left
                         count--;                    // Go back a step in array
                     }
-                    else if (digit[0] != '#' && count < 3)   // only if operator doesn't want to continue
+                    else if (digit[0] != '#' && count < 3 && digit[0] != '*')   // only if operator doesn't want to continue
                     {
                         number[count] = digit[0];   //place the number into the code
                         WriteStringToLCD(digit);
@@ -457,9 +457,9 @@ void main(void)
        double forceMax = 0;        // maximum force value for weight
        double threshold = 0;       // maximum voltage value for weight
 
-       if (numberInt > 150)
+       if (numberInt >= 150)
        {
-           forceMax = 22;
+           forceMax = 15;
        }
        else
        {
@@ -485,6 +485,11 @@ void main(void)
 
         int displaySensor = 0;
 
+        char UserForceDec[2] = "0";
+        char UserForceOne[2] = "0";
+        char UserForceTen[2] = "0";
+
+        ClearLCDScreen();       // clear screen for next stage
 
         while(1)
         {
@@ -499,9 +504,9 @@ void main(void)
 
             if (assignNumpad() == '#')
             {
-                if (SENSOR < threshold && dc < 127)
+                if (SENSOR < threshold && dc <= 127)
                 {
-                    if (dc == 0)
+                    if (dc == 0)        // initial dc start up
                     {
                         dc = 50;
                     }
@@ -510,9 +515,9 @@ void main(void)
                         dc += 1;    // add one to the duty cycle
                     }
                 }
-                else if (SENSOR > 0)
+                else if (SENSOR >= threshold)
                 {
-                    dc-= 1;
+                    dc -= 5;
                 }
 
             }
@@ -527,11 +532,14 @@ void main(void)
             //  IntToText converts an integer to ASCII
 
             float force = (SENSOR - b)/a;
+//            int forceInt = force;
+            float forceTenFloat = force*10;
+            char forceTenChar = (char) forceTenFloat*10;
+            int forceTenInt = (int) forceTenFloat;
 
             if (displaySensor%50 == 0)
             {
-                ClearLCDScreen();
-
+                WriteCommandToLCD(0x02);                    // return cursor to home
                 WriteStringToLCD("Hold # to start.");       // line 1
 
                 // line 3: --####----####--
@@ -542,10 +550,35 @@ void main(void)
 
                 WriteStringToLCD("    ");
 
-                //int * UserForce = IntToText(force);
-                //WriteStringToLCD(UserForce);
-                WriteStringToLCD("####");       // currently can't get proper value
-                WriteStringToLCD("  ");
+                if (SENSOR >= 435)
+                {
+                    int * UserForce = IntToText(forceTenInt);
+
+                    UserForceDec[0] = (forceTenChar)%10 + '0';  // quick fix to decimal not displaying right
+                    UserForceOne[0] = UserForce[1];
+                    UserForceTen[0] = UserForce[2];
+
+                    
+
+                    WriteStringToLCD(UserForceTen);
+                    WriteStringToLCD(UserForceOne);
+                    WriteStringToLCD(".");       // currently can't get proper value
+                    WriteStringToLCD(UserForceDec);
+                    WriteStringToLCD("  ");
+
+                    if (force < 10)
+                    {
+                        WriteStringToLCD(" ");
+                    }
+//
+                }                
+                else
+                {
+                    WriteStringToLCD("####");
+                    WriteStringToLCD("  ");
+                }
+                
+           }
                 // end of line 3
 
 
@@ -571,12 +604,13 @@ void main(void)
 
             displaySensor++;
 
-
+        while(1);
+        // Written strings must be ordered by lines in 16 character segment
 
         }
             
-        while(1);
-        // Written strings must be ordered by lines in 16 character segments
 
 
-}
+
+
+
